@@ -73,13 +73,21 @@ def unzip_grain(grain):
 
 def draw_image(data, name=None):
     cid = np.where(data == 255)
+    # b = np.zeros((data.shape[0], data.shape[1], 4), dtype=np.uint8)
+    # for i in np.asarray(cid).T:
+    #     b[i[0], i[1], 3] = 255
+    # b2 = bytearray(b.tobytes())
+    # pix = fitz.Pixmap(fitz.csRGB, b.shape[1], b.shape[0], b2, True)
     b = np.zeros((data.shape[0], data.shape[1], 4), dtype=np.uint8)
     for i in np.asarray(cid).T:
         b[i[0], i[1], 3] = 255
     b2 = bytearray(b.tobytes())
-    pix = fitz.Pixmap(fitz.csRGB, b.shape[1], b.shape[0], b2, True)
+    pix = fitz.Pixmap(fitz.csCMYK, b.shape[1], b.shape[0], b2, False)
+    path = './output/image/' + time.strftime('%Y-%m-%d')
+    if not os.path.exists(path):
+        os.makedirs(path)
     if name:
-        pix.save(name)
+        pix.save(path + '/' + name)
     return pix
 
 
@@ -102,7 +110,7 @@ def fill_mat(data, multiple=0, modulo=0, axis=1):
     return new_data
 
 
-def unzip_img(data, area_num=4):
+def unzip_img(data, area_num=8):
     """
     解压码点文件
     1. 转成二进制形式
@@ -197,7 +205,7 @@ class Draw:
             g = np.all(data == 0)
         return i
 
-    def _slice_data(self, area=4, margin=2):
+    def _slice_data(self, area=8, margin=2):
         """
         分割数据
         .   一个最小的识别单位为 45 X 45 个像素矩阵组成，其中，黑点区域有 6 X 6 个
@@ -207,7 +215,7 @@ class Draw:
         .   2. 用最小识别单位重复填充区域，组成一个新矩陈
         .   3. 将新矩陈转成 rgba 颜色矩陈
         .   4. 建立像素图，用颜色矩陈绘制，插入页面
-        :param area: 按几个识别单元来切割
+        :param area: 按几个识别单元来切割，可以是一个int值，可以是一个元组，如果是一个元组则分别代表长宽
         :param margin: 每个切割区域的间隔数，以识别单元为单位
         :return: list 切割区域列表
         """
@@ -218,24 +226,27 @@ class Draw:
         v = math.floor(self.img.shape[0] / area_margin)
 
         # 将原图进行截断，保证能分割均匀
-        self.img = self.img[:h * area_margin, :v * area_margin]
+        self.img = self.img[:v * area_margin, :h * area_margin]
         # 先进行纵向切割
         h_array = np.hsplit(self.img, h)
         area_list = []
         for col in range(len(h_array)):
             v_array = np.vsplit(h_array[col], v)
+            # if col == 0:
+            #     draw_image(h_array[0], 'col-0.png')
             for row in range(len(v_array)):
-                # 当前切块中最左侧在整页中的第几个识别单位
-                c_cell_num = col * (margin + area)
-                r_cell_num = row * (margin + area)
-                # 48是一个识别单位的坐标值，识别单位左侧x值为0，右侧的x值为48
-                min_x = (c_cell_num + margin) * 48
-                max_x = (c_cell_num + margin + area) * 48
-                min_y = (r_cell_num + margin) * 48
-                max_y = (r_cell_num + margin + area) * 48
+                # 11200为A3尺寸PDF的最大x轴码点坐标值，9797
+                min_x = math.floor(((col * (margin + area) * 42) + (margin * 42) + 2) * 11200 / 9797)
+                max_x = math.floor(((col + 1) * (margin + area) * 42 + 2) * 11200 / 9797)
+                min_y = math.floor(((row * (margin + area) * 42) + (margin * 42) + 1) * 7920 / 6934)
+                max_y = math.floor(((row + 1) * (margin + area) * 42 + 1) * 7920 / 6934)
                 position = {'address': self.address, 'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
                 area_mat = v_array[row][margin * self.cell:, margin * self.cell:]
                 position['area_char'] = self._slice_grain2(area_mat)
+                position['p'] = str(col) + '-' + str(row)
+                if col == 0 and row == 0:
+                    draw_image(area_mat, str(col) + '-' + str(row) + '.png')
+                    self._create_test_pdf(area_mat, position, str(col) + '-' + str(row))
                 area_list.append(position)
         return area_list
 
@@ -298,24 +309,51 @@ class Draw:
         total_col = round(size[0] * self.mm_to_px)
         # 每个码点识别区的列数
         cell_col = data.shape[1]
-        # 剩余要填充的列表
-        remain_col = total_col - cell_col
-        # 剩余要填充的列数与识别区列数的倍数
-        t = math.floor(remain_col / cell_col)
-        multiple_col = t if t > 0 else 0
-        # 剩余要填充的列数与识别区列数的模数
-        modulo_col = remain_col - cell_col * t
-        # 进行列填充
-        data = fill_mat(data, multiple_col, modulo_col, 1)
+        if total_col > cell_col:
+            # 剩余要填充的列表
+            remain_col = total_col - cell_col
+            # 剩余要填充的列数与识别区列数的倍数
+            t = math.floor(remain_col / cell_col)
+            multiple_col = t if t > 0 else 0
+            # 剩余要填充的列数与识别区列数的模数
+            modulo_col = remain_col - cell_col * t
+            # 进行列填充
+            data = fill_mat(data, multiple_col, modulo_col, 1)
+        else:
+            data = data[:, :total_col]
         # 再填充行
         total_row = round(size[1] * self.mm_to_px)
         cell_row = data.shape[0]
-        remain_row = total_row - cell_row
-        t = math.floor(remain_row / cell_row)
-        multiple_row = t if t > 0 else 0
-        modulo_row = remain_row - cell_row * t
-        data = fill_mat(data, multiple_row, modulo_row, 0)
+        if total_row > cell_row:
+            remain_row = total_row - cell_row
+            t = math.floor(remain_row / cell_row)
+            multiple_row = t if t > 0 else 0
+            modulo_row = remain_row - cell_row * t
+            data = fill_mat(data, multiple_row, modulo_row, 0)
+        else:
+            data = data[:total_row]
         return data
+
+    def _create_test_pdf(self, data, position, name):
+        width = data.shape[0] * self.px_to_pt
+        height = data.shape[1] * self.px_to_pt
+        pdf = fitz.open()
+        page = pdf.new_page(width=width, height=height)
+        shape = page.new_shape()
+        min_x = str(position['min_x'])
+        min_y = str(position['min_y'])
+        max_x = str(position['max_x'])
+        max_y = str(position['max_y'])
+        address = position['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
+        shape.insert_text((1, height - 1), address, color=(0, 0, 0), fontsize=3)
+        # shape.insert_textbox((width / 2, height / 2), name, color=(0, 0, 1), fontsize=8)
+        shape.commit()
+        pix = draw_image(data)
+        page.insert_image((0, 0, data.shape[1] * self.px_to_pt, data.shape[0] * self.px_to_pt), pixmap=pix)
+        path = self.output + self.pdf_save + '/' + time.strftime('%Y-%m-%d')
+        if not os.path.exists(path):
+            os.makedirs(path)
+        pdf.save(path + '/' + name + '.pdf')
 
     def set_position(self, size='A4', cell=(45, 15), row=11, col=3, margin=(5, 5, 5, 5)):
         """
@@ -385,28 +423,31 @@ class Draw:
                 y = position[i][1]
                 x2 = x + image_mat.shape[1] * self.px_to_pt
                 y2 = y + image_mat.shape[0] * self.px_to_pt
-                # 学生名字
-                if 'name' in image:
-                    a = (position[i][3] - y) / 6 * 1.5
-                    rect = (x, y + a, position[i][2], position[i][3])
-                    student_name = str(image['name'])
-                    shape.insert_textbox(rect, student_name, color=(0, 0, 1), fontname='china-s', align=1, fontsize=8)
-                    b = (position[i][3] - y) / 6 * 2.8
-                    rect2 = (x, y + b, position[i][2], position[i][3])
-                    shape.insert_textbox(rect2, str(image['code']), color=(0, 0, 0), align=1, fontsize=8)
+
+                pix = draw_image(image_mat)
+                page.insert_image((x, y, x2, y2), pixmap=pix)
                 min_x = str(image['min_x'])
                 min_y = str(image['min_y'])
                 max_x = str(image['max_x'])
                 max_y = str(image['max_y'])
                 text = image['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
                 page.insert_text((position[i][0] + 1, position[i][3] - 1), text, 3)
-                pix = draw_image(image_mat)
-                page.insert_image((x, y, x2, y2), pixmap=pix)
+                # 学生名字
+                if 'name' in image:
+                    a = (position[i][3] - y) / 6 * 1.5
+                    rect = (x, y + a, position[i][2], position[i][3])
+                    student_name = str(image['name'])
+                    shape.insert_textbox(rect, student_name, color=(0, 0, 0), fontname='china-s', align=1, fontsize=8)
+                    b = (position[i][3] - y) / 6 * 2.8
+                    rect2 = (x, y + b, position[i][2], position[i][3])
+                    shape.insert_textbox(rect2, str(image['code']), color=(0, 0, 0), align=1, fontsize=8)
+                if 'p' in image:
+                    shape.insert_textbox(position[i], str(image['p']), color=(0, 0, 1), fontsize=5)
             shape.commit()
-        path = self.output + self.pdf_save
+        path = self.output + self.pdf_save + '/' + name
         if not os.path.exists(path):
             os.makedirs(path)
-        doc.save(path + '/' + name + '/list.pdf')
+        doc.save(path + '/list.pdf', deflate=True)
 
     def create_single_pdf(self, student_data, save_dir, width=45, height=15):
         width = width * self.mm_to_pt
@@ -414,40 +455,46 @@ class Draw:
         pdf = fitz.open()
         page = pdf.new_page(width=width, height=height)
         shape = page.new_shape()
+
+        min_x = str(student_data['min_x'])
+        min_y = str(student_data['min_y'])
+        max_x = str(student_data['max_x'])
+        max_y = str(student_data['max_y'])
+
+        mat = self._fill_data(student_data['area'], (width, height))
+        pix = draw_image(mat)
+        page.insert_image((0, 0, mat.shape[1] * self.px_to_pt, mat.shape[0] * self.px_to_pt), pixmap=pix)
+        shape.insert_text(
+            (1, height - 1),
+            student_data['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y,
+            fontsize=3,
+        )
+        name = ''
+        code = 1234567
+        if 'name' in student_data:
+            name = student_data['name']
+            code = student_data['code']
+        if 'p' in student_data:
+            name = student_data['p']
         # 插入文字
         box_rect = fitz.Rect(0, height / 6 * 1.3, width, height)
         shape.insert_textbox(
             box_rect,
-            student_data['name'],
-            color=(0, 0, 1),
+            str(name),
             fontname='china-s',
             align=1
         )
         shape.insert_textbox(
             (0, height / 6 * 3, width, height),
-            str(student_data['code']),
-            color=(0, 0, 1),
+            str(code),
             align=1,
             fontsize=8
         )
-        min_x = str(student_data['min_x'])
-        min_y = str(student_data['min_y'])
-        max_x = str(student_data['max_x'])
-        max_y = str(student_data['max_y'])
-        shape.insert_text(
-            (1, height - 1),
-            student_data['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y,
-            color=(0, 0, 0),
-            fontsize=3,
-        )
         shape.commit()
-        mat = self._fill_data(student_data['area'], (width, height))
-        pix = draw_image(mat)
-        page.insert_image((0, 0, mat.shape[1] * self.px_to_pt, mat.shape[0] * self.px_to_pt), pixmap=pix)
         path = self.output + self.pdf_save + '/' + save_dir
         if not os.path.exists(path):
             os.makedirs(path)
-        pdf.save(path + '/' + student_data['name'] + '.pdf')
+        pdf.save(path + '/' + name + '.pdf', deflate=True)
 
 
 def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), t='list,single'):
@@ -485,6 +532,7 @@ def import_pdf(file):
             data = pix.tobytes(output="png")
             image_array = np.frombuffer(data, dtype=np.uint8)
             img = cv2.imdecode(image_array, cv2.IMREAD_GRAYSCALE)
+            # draw_image(img, '1.png')
             areas = draw.stock(img, address)
             path = './output/json'
             if not os.path.exists(path):
@@ -494,7 +542,7 @@ def import_pdf(file):
 
 
 if __name__ == '__main__':
-    # import_pdf('./pdf/105X105_dot.pdf')
-    with open('./output/json/1713.537.31.86.json', 'r', encoding='utf-8') as f:
+    # import_pdf('./pdf/A3.pdf')
+    with open('output/json/1713.537.32.77.json', 'r', encoding='utf-8') as f:
         data_list = json.load(f)
-    create_pdf(data_list[:4])
+    create_pdf(data_list[:10], t='single,list')
