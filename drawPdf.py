@@ -110,7 +110,7 @@ def fill_mat(data, multiple=0, modulo=0, axis=1):
     return new_data
 
 
-def unzip_img(data, area_num=8):
+def unzip_img(data, area_num=24):
     """
     解压码点文件
     1. 转成二进制形式
@@ -205,7 +205,7 @@ class Draw:
             g = np.all(data == 0)
         return i
 
-    def _slice_data(self, area=8, margin=2):
+    def _slice_data(self, area=(24,8), margin=2):
         """
         分割数据
         .   一个最小的识别单位为 45 X 45 个像素矩阵组成，其中，黑点区域有 6 X 6 个
@@ -220,13 +220,13 @@ class Draw:
         :return: list 切割区域列表
         """
         # 一个分割区域由一个识别区加一个隔离区组成
-        area_margin = area * self.cell + margin * self.cell
+        area_width = area[0] * self.cell + margin * self.cell
+        area_height = area[1] * self.cell + margin * self.cell
         # 计算一共能分割成几行几列
-        h = math.floor(self.img.shape[1] / area_margin)
-        v = math.floor(self.img.shape[0] / area_margin)
-
+        h = math.floor(self.img.shape[1] / area_width)
+        v = math.floor(self.img.shape[0] / area_height)
         # 将原图进行截断，保证能分割均匀
-        self.img = self.img[:v * area_margin, :h * area_margin]
+        self.img = self.img[:v * area_height, :h * area_width]
         # 先进行纵向切割
         h_array = np.hsplit(self.img, h)
         area_list = []
@@ -236,17 +236,17 @@ class Draw:
             #     draw_image(h_array[0], 'col-0.png')
             for row in range(len(v_array)):
                 # 11200为A3尺寸PDF的最大x轴码点坐标值，9797
-                min_x = math.floor(((col * (margin + area) * 42) + (margin * 42) + 2) * 11200 / 9797)
-                max_x = math.floor(((col + 1) * (margin + area) * 42 + 2) * 11200 / 9797)
-                min_y = math.floor(((row * (margin + area) * 42) + (margin * 42) + 1) * 7920 / 6934)
-                max_y = math.floor(((row + 1) * (margin + area) * 42 + 1) * 7920 / 6934)
+                min_x = math.floor(((col * (margin + area[0]) * 42) + (margin * 42) + 2) * 11200 / 9797)
+                max_x = math.floor(((col + 1) * (margin + area[0]) * 42 + 2) * 11200 / 9797)
+                min_y = math.floor(((row * (margin + area[1]) * 42) + (margin * 42) + 1) * 7920 / 6934)
+                max_y = math.floor(((row + 1) * (margin + area[1]) * 42 + 1) * 7920 / 6934)
                 position = {'address': self.address, 'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
                 area_mat = v_array[row][margin * self.cell:, margin * self.cell:]
                 position['area_char'] = self._slice_grain2(area_mat)
                 position['p'] = str(col) + '-' + str(row)
-                if col == 0 and row == 0:
-                    draw_image(area_mat, str(col) + '-' + str(row) + '.png')
-                    self._create_test_pdf(area_mat, position, str(col) + '-' + str(row))
+                # if col == 0 and row == 0:
+                #     draw_image(area_mat, str(col) + '-' + str(row) + '.png')
+                #     self._create_test_pdf(area_mat, position, str(col) + '-' + str(row))
                 area_list.append(position)
         return area_list
 
@@ -297,43 +297,6 @@ class Draw:
                     char_str = ''
         return ''.join(char_list)
 
-    def _fill_data(self, data, size):
-        """
-        填充数据，一行或一列对应一个像素
-        :param data: 要填充的数据
-        :param size: 要填充的大小
-        :return:
-        """
-        # 先填充列
-        # 总共要填充的列数
-        total_col = round(size[0] * self.mm_to_px)
-        # 每个码点识别区的列数
-        cell_col = data.shape[1]
-        if total_col > cell_col:
-            # 剩余要填充的列表
-            remain_col = total_col - cell_col
-            # 剩余要填充的列数与识别区列数的倍数
-            t = math.floor(remain_col / cell_col)
-            multiple_col = t if t > 0 else 0
-            # 剩余要填充的列数与识别区列数的模数
-            modulo_col = remain_col - cell_col * t
-            # 进行列填充
-            data = fill_mat(data, multiple_col, modulo_col, 1)
-        else:
-            data = data[:, :total_col]
-        # 再填充行
-        total_row = round(size[1] * self.mm_to_px)
-        cell_row = data.shape[0]
-        if total_row > cell_row:
-            remain_row = total_row - cell_row
-            t = math.floor(remain_row / cell_row)
-            multiple_row = t if t > 0 else 0
-            modulo_row = remain_row - cell_row * t
-            data = fill_mat(data, multiple_row, modulo_row, 0)
-        else:
-            data = data[:total_row]
-        return data
-
     def _create_test_pdf(self, data, position, name):
         width = data.shape[0] * self.px_to_pt
         height = data.shape[1] * self.px_to_pt
@@ -355,7 +318,7 @@ class Draw:
             os.makedirs(path)
         pdf.save(path + '/' + name + '.pdf')
 
-    def set_position(self, size='A4', cell=(45, 15), row=11, col=3, margin=(5, 5, 5, 5)):
+    def set_position(self, size='A4', cell=(42.7392, 14.2464), row=11, col=3, margin=(5, 5, 5, 5)):
         """
         计算每个位置
         :param size: 页面大小
@@ -418,7 +381,7 @@ class Draw:
                 # page.draw_rect(rect)
 
                 image = images[page.number][i]
-                image_mat = self._fill_data(image['area'], self.cell_size)
+                image_mat = image['area']
                 x = position[i][0]
                 y = position[i][1]
                 x2 = x + image_mat.shape[1] * self.px_to_pt
@@ -449,7 +412,7 @@ class Draw:
             os.makedirs(path)
         doc.save(path + '/list.pdf', deflate=True)
 
-    def create_single_pdf(self, student_data, save_dir, width=45, height=15):
+    def create_single_pdf(self, student_data, save_dir, width=42.7392, height=14.2464):
         width = width * self.mm_to_pt
         height = height * self.mm_to_pt
         pdf = fitz.open()
@@ -461,7 +424,7 @@ class Draw:
         max_x = str(student_data['max_x'])
         max_y = str(student_data['max_y'])
 
-        mat = self._fill_data(student_data['area'], (width, height))
+        mat = student_data['area']
         pix = draw_image(mat)
         page.insert_image((0, 0, mat.shape[1] * self.px_to_pt, mat.shape[0] * self.px_to_pt), pixmap=pix)
         shape.insert_text(
@@ -545,4 +508,4 @@ if __name__ == '__main__':
     # import_pdf('./pdf/A3.pdf')
     with open('output/json/1713.537.32.77.json', 'r', encoding='utf-8') as f:
         data_list = json.load(f)
-    create_pdf(data_list[:10], t='single,list')
+    create_pdf(data_list[:10])
