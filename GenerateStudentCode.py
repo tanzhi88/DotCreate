@@ -8,6 +8,7 @@ import time
 import numpy as np
 import cv2
 import fitz
+np.set_printoptions(threshold=np.inf)
 
 parser = argparse.ArgumentParser(description='manual to this script')
 parser.add_argument("--student-data", type=str, default="[]")
@@ -86,11 +87,12 @@ def draw_image(data, name=None):
     #     b[i[0], i[1], 3] = 255
     # b2 = bytearray(b.tobytes())
     # pix = fitz.Pixmap(fitz.csRGB, b.shape[1], b.shape[0], b2, True)
-    b = np.zeros((data.shape[0], data.shape[1], 4), dtype=np.uint8)
+    b = np.zeros((data.shape[0], data.shape[1], 5), dtype=np.uint8)
     for i in np.asarray(cid).T:
         b[i[0], i[1], 3] = 255
+        b[i[0], i[1], 4] = 255
     b2 = bytearray(b.tobytes())
-    pix = fitz.Pixmap(fitz.csCMYK, b.shape[1], b.shape[0], b2, False)
+    pix = fitz.Pixmap(fitz.csCMYK, b.shape[1], b.shape[0], b2, True)
     path = './output/image/' + time.strftime('%Y-%m-%d')
     if not os.path.exists(path):
         os.makedirs(path)
@@ -326,7 +328,7 @@ class Draw:
             os.makedirs(path)
         pdf.save(path + '/' + name + '.pdf')
 
-    def set_position(self, size='A4', cell=(42.7392, 14.2464), row=11, col=3, margin=(5, 5, 5, 5)):
+    def set_position(self, size='A4', cell=(42.7392, 14.2464), row=15, col=4, margin=(20, 15, 20, 15)):
         """
         计算每个位置
         :param size: 页面大小
@@ -355,8 +357,8 @@ class Draw:
         position = []
         for r in range(row):
             for c in range(col):
-                x = cell_h_margin + (c % col) * (cell_width + cell_h_margin)
-                y = cell_v_margin + r * (cell_height + cell_v_margin)
+                x = page_l_margin + cell_h_margin + (c % col) * (cell_width + cell_h_margin)
+                y = page_u_margin + cell_v_margin + r * (cell_height + cell_v_margin)
                 x2 = x + cell_width
                 y2 = y + cell_height
                 position.append((x, y, x2, y2))
@@ -375,6 +377,8 @@ class Draw:
         # 总页数
         page_total = math.ceil(len(data) / page_num)
         images = []
+        font_path = os.path.abspath("font/simhei.ttf")  # 使用宋体字体
+        font_name = "SimHei"
         # 生成PDF页面
         for i in range(page_total):
             doc.new_page()
@@ -395,25 +399,26 @@ class Draw:
                 x2 = x + image_mat.shape[1] * self.px_to_pt
                 y2 = y + image_mat.shape[0] * self.px_to_pt
 
-                pix = draw_image(image_mat)
-                page.insert_image((x, y, x2, y2), pixmap=pix)
                 min_x = str(image['min_x'])
                 min_y = str(image['min_y'])
                 max_x = str(image['max_x'])
                 max_y = str(image['max_y'])
                 text = image['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
-                page.insert_text((position[i][0] + 1, position[i][3] - 1), text, 3)
+                page.insert_text((position[i][0] + 1, position[i][3] - 1), text, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, fontsize=3)
                 # 学生名字
                 if 'name' in image:
                     a = (position[i][3] - y) / 6 * 1.5
                     rect = (x, y + a, position[i][2], position[i][3])
                     student_name = str(image['name'])
-                    shape.insert_textbox(rect, student_name, color=(0, 0, 0), fontname='china-s', align=1, fontsize=8)
+                    shape.insert_textbox(rect, student_name, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, align=1, fontsize=8)
                     b = (position[i][3] - y) / 6 * 2.8
                     rect2 = (x, y + b, position[i][2], position[i][3])
-                    shape.insert_textbox(rect2, str(image['code']), color=(0, 0, 0), align=1, fontsize=8)
+                    shape.insert_textbox(rect2, str(image['code']), color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, align=1, fontsize=8)
                 if 'p' in image:
                     shape.insert_textbox(position[i], str(image['p']), color=(0, 0, 1), fontsize=5)
+                shape.commit()
+                pix = draw_image(image_mat)
+                page.insert_image((x, y, x2, y2), pixmap=pix)
             shape.commit()
         path = self.output + self.pdf_save + '/' + name
         if not os.path.exists(path):
@@ -435,9 +440,6 @@ class Draw:
         max_x = str(student_data['max_x'])
         max_y = str(student_data['max_y'])
 
-        mat = student_data['area']
-        pix = draw_image(mat)
-        page.insert_image((0, 0, mat.shape[1] * self.px_to_pt, mat.shape[0] * self.px_to_pt), pixmap=pix)
         shape.insert_text(
             (1, height - 1),
             student_data['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y,
@@ -456,6 +458,7 @@ class Draw:
             box_rect,
             str(name),
             fontname='china-s',
+            color=(1, 0, 0, 0),
             align=1
         )
         shape.insert_textbox(
@@ -464,6 +467,11 @@ class Draw:
             align=1,
             fontsize=8
         )
+        shape.commit()
+
+        mat = student_data['area']
+        pix = draw_image(mat)
+        page.insert_image((0, 0, mat.shape[1] * self.px_to_pt, mat.shape[0] * self.px_to_pt), pixmap=pix)
         shape.commit()
         # path = self.output + self.pdf_save + '/' + save_dir
         # if not os.path.exists(path):
@@ -476,8 +484,65 @@ class Draw:
         current_path = os.path.abspath(file_path)
         print(current_path)
 
+    def create_multi_pdf(self, data, position, name):
+        doc = fitz.Document()
+        page = None
+        shape = None
+        font_path = os.path.abspath("font/simhei.ttf")  # 使用宋体字体
+        # font = fitz.Font(fontfile=font_path)
+        # font_name = font.name
+        font_name = 'SimHei'
+        for i in range(len(data)):
+            image = data[i]
+            image_mat = image['area']
+            pix = draw_image(image_mat)
+            if i % 2 == 0:
+                page = doc.new_page()
+                shape = page.new_shape()
+                position_part = position[0]
+            else:
+                position_part = position[1]
+            for p in position_part:
+                # rect = fitz.Rect(p)
+                # page.draw_rect(rect)
+                x = p[0]
+                y = p[1]
+                x2 = x + image_mat.shape[1] * self.px_to_pt
+                y2 = y + image_mat.shape[0] * self.px_to_pt
 
-def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), t='list,single'):
+                min_x = str(image['min_x'])
+                min_y = str(image['min_y'])
+                max_x = str(image['max_x'])
+                max_y = str(image['max_y'])
+                text = image['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
+                page.insert_text((p[0] + 1, p[3] - 1), text, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, fontsize=3)
+                # 学生名字
+                if 'name' in image:
+                    a = (p[3] - y) / 6 * 1.5
+                    # rect = (x, y + a, p[2], p[3])
+                    rect = fitz.Rect(x, y + a, p[2], p[3])
+                    student_name = str(image['name'])
+                    shape.insert_textbox(rect, student_name, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, align=1, fontsize=8)
+                    b = (p[3] - y) / 6 * 2.8
+                    rect2 = (x, y + b, p[2], p[3])
+                    shape.insert_textbox(rect2, str(image['code']), color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path, align=1, fontsize=8)
+                if 'p' in image:
+                    shape.insert_textbox(p, str(image['p']), color=(0, 0, 1, 0), fontsize=5)
+                shape.commit()
+
+                page.insert_image((x, y, x2, y2), pixmap=pix)
+                shape.commit()
+
+        path = self.output + self.pdf_save + '/' + name
+        if not os.path.exists(path):
+            os.makedirs(path)
+        file_path = path + '/multi.pdf'
+        doc.save(file_path, deflate=True)
+        current_path = os.path.abspath(file_path)
+        print(current_path)
+
+
+def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), t='list'):
     """
     生成PDF
     :param data: list 数据列表
@@ -493,6 +558,11 @@ def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), t='list,single'):
     if 'list' in type_arr:
         position = draw.set_position()
         draw.create_list_pdf(data, position, save_dir)
+    if 'multi' in type_arr:
+        position1 = draw.set_position(row=8, margin=(10, 15, 158, 15))
+        position2 = draw.set_position(row=8, margin=(158, 15, 10, 15))
+        position = [position1, position2]
+        draw.create_multi_pdf(data, position, save_dir)
 
 
 def import_pdf(file):
@@ -522,9 +592,13 @@ def import_pdf(file):
             print(areas)
 
 
-if args.target == 1:
-    import_pdf(args.path)
-else:
-    with open(args.student_data, 'r', encoding='utf-8') as f:
-        jsonObject = json.load(f)
-    create_pdf(jsonObject, args.path, args.type)
+if __name__ == '__main__':
+    with open('output/json/1713.537.32.77-2.json', 'r', encoding='utf-8') as f:
+        data_list = json.load(f)
+    create_pdf(data_list[:2], t='multi')
+# if args.target == 1:
+#     import_pdf(args.path)
+# else:
+#     with open(args.student_data, 'r', encoding='utf-8') as f:
+#         jsonObject = json.load(f)
+#     create_pdf(jsonObject, args.path, args.type)
