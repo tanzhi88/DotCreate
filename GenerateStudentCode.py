@@ -592,13 +592,13 @@ def import_pdf(file):
             print(areas)
 
 
-if __name__ == '__main__':
-    with open('output/json/1713.537.32.77-2.json', 'r', encoding='utf-8') as f:
-        data_list = json.load(f)
-    create_pdf(data_list[:2], t='multi')
-# if args.target == 1:
-#     import_pdf(args.path)
-# else:
-#     with open(args.student_data, 'r', encoding='utf-8') as f:
-#         jsonObject = json.load(f)
-#     create_pdf(jsonObject, args.path, args.type)
+# if __name__ == '__main__':
+#     with open('output/json/1713.537.32.77-2.json', 'r', encoding='utf-8') as f:
+#         data_list = json.load(f)
+#     create_pdf(data_list[:2], t='multi')
+if args.target == 1:
+    import_pdf(args.path)
+else:
+    with open(args.student_data, 'r', encoding='utf-8') as f:
+        jsonObject = json.load(f)
+    create_pdf(jsonObject, args.path, args.type)
