@@ -176,12 +176,12 @@ class Draw:
     output = './output'
     pdf_save = '/pdf'
 
-    def stock(self, dot_image, address):
+    def stock(self, dot_image, address, areas):
         self.img = dot_image
         self.address = address
         self._trim_data()
         area_list = self._slice_data()
-        return area_list
+        return areas + area_list
 
     def _trim_data(self):
         """
@@ -573,8 +573,9 @@ def import_pdf(file):
     """
     draw = Draw()
     pdf = fitz.open(file)
+    areas = []
     for page in pdf:
-        imageList = page.getImageList()
+        imageList = page.get_images()
         text = page.get_text()
         address = text.split(' ')[0]
         for imageInfo in imageList:
@@ -583,16 +584,17 @@ def import_pdf(file):
             image_array = np.frombuffer(data, dtype=np.uint8)
             img = cv2.imdecode(image_array, cv2.IMREAD_GRAYSCALE)
             # draw_image(img, '1.png')
-            areas = draw.stock(img, address)
+            areas = draw.stock(img, address, areas)
             # path = './output/json'
             # if not os.path.exists(path):
             #     os.makedirs(path)
             # with open(path + "/" + address + ".json", "w", encoding='utf-8') as f:
             #     json.dump(areas, f, ensure_ascii=False, sort_keys=True, indent=4)
-            print(areas)
+    print(areas)
 
 
 # if __name__ == '__main__':
+#     import_pdf('./pdf/A3-2_dot.pdf')
 #     with open('output/json/1713.537.32.77-2.json', 'r', encoding='utf-8') as f:
 #         data_list = json.load(f)
 #     create_pdf(data_list[:2], t='multi')
