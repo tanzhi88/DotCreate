@@ -379,6 +379,7 @@ class Draw:
         images = []
         font_path = os.path.abspath("font/simhei.ttf")  # 使用宋体字体
         font_name = "SimHei"
+        school_name = data[0]['schoolName'] + ' - ' + data[0]['gradeClass']
         # 生成PDF页面
         for i in range(page_total):
             doc.new_page()
@@ -388,6 +389,8 @@ class Draw:
         # 绘制页面
         for page in doc.pages():
             shape = page.new_shape()
+            page.insert_textbox((0, 30, page.rect[2], 40), school_name, fontname=font_name, fontfile=font_path,
+                                align=fitz.TEXT_ALIGN_CENTER, color=(0, 0, 0, 1))
             for i in range(len(images[page.number])):
                 # rect = fitz.Rect(position[i])
                 # page.draw_rect(rect)
@@ -488,6 +491,7 @@ class Draw:
         doc = fitz.Document()
         page = None
         shape = None
+        title_position = None
         font_path = os.path.abspath("font/simhei.ttf")  # 使用宋体字体
         # font = fitz.Font(fontfile=font_path)
         # font_name = font.name
@@ -500,8 +504,11 @@ class Draw:
                 page = doc.new_page()
                 shape = page.new_shape()
                 position_part = position[0]
+                title_position = (0, 15, page.rect[2], 30)
             else:
                 position_part = position[1]
+                title_position = (0, position_part[0][1] - 20, page.rect[2], position_part[0][1] - 5)
+            page.insert_textbox(title_position, image['schoolName'] + ' - ' + image['gradeClass'], fontname=font_name, fontfile=font_path, align=fitz.TEXT_ALIGN_CENTER, color=(0, 0, 0, 1))
             for p in position_part:
                 # rect = fitz.Rect(p)
                 # page.draw_rect(rect)
@@ -594,10 +601,10 @@ def import_pdf(file):
 
 
 # if __name__ == '__main__':
-#     import_pdf('./pdf/A3-2_dot.pdf')
+#     # import_pdf('./pdf/A3-2_dot.pdf')
 #     with open('output/json/1713.537.32.77-2.json', 'r', encoding='utf-8') as f:
 #         data_list = json.load(f)
-#     create_pdf(data_list[:2], t='multi')
+#     create_pdf(data_list[:2], t='list')
 if args.target == 1:
     import_pdf(args.path)
 else:
