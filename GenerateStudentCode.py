@@ -379,7 +379,7 @@ class Draw:
         images = []
         font_path = os.path.abspath("font/simhei.ttf")  # 使用宋体字体
         font_name = "SimHei"
-        school_name = data[0]['schoolName'] + ' - ' + data[0]['gradeClass']
+        school_name = data[0]['school_name'] + ' - ' + data[0]['grade_class']
         # 生成PDF页面
         for i in range(page_total):
             doc.new_page()
@@ -508,7 +508,7 @@ class Draw:
             else:
                 position_part = position[1]
                 title_position = (0, position_part[0][1] - 20, page.rect[2], position_part[0][1] - 5)
-            page.insert_textbox(title_position, image['schoolName'] + ' - ' + image['gradeClass'], fontname=font_name, fontfile=font_path, align=fitz.TEXT_ALIGN_CENTER, color=(0, 0, 0, 1))
+            page.insert_textbox(title_position, image['school_name'] + ' - ' + image['grade_class'], fontname=font_name, fontfile=font_path, align=fitz.TEXT_ALIGN_CENTER, color=(0, 0, 0, 1))
             for p in position_part:
                 # rect = fitz.Rect(p)
                 # page.draw_rect(rect)
