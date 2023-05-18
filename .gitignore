@@ -4,7 +4,10 @@
 /output/*
 ./pdf
 ./pdf/*
+/pdf
+/pdf/*
 /test
 /test/*
 ./test
 .idea
+Pipfile.lock
