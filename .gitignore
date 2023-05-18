@@ -2,4 +2,9 @@
 /venv/*
 /output
 /output/*
+./pdf
+./pdf/*
+/test
+/test/*
+./test
 .idea
