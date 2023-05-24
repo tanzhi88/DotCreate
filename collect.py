@@ -196,9 +196,8 @@ def matrix_unzip(area_char, dot_type='bbb'):
         # 分离字符串并获取图像尺寸和数据
         shape_str, data_len_str, hex_str = area_char.split("|")
         rows, cols = map(int, shape_str.split("*"))
-        data_len = int(data_len_str)
         # 将32位的十六进制数据转化为二进制字符串
-        bin_str = bin(int(hex_str, 16))[2:].zfill(data_len)
+        bin_str = bin(int(hex_str, 16))[2:].zfill(len(hex_str) * 4)
         max_col = cols / 4
     else:
         bin_str = bin(int(area_char, 16))[2:].zfill(len(area_char) * 4)
