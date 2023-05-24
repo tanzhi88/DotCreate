@@ -221,11 +221,13 @@ def create_multi_pdf(data, position, name, dot_type='bbb', font_name=FONT_NAME, 
 
 def create_pdf(data, dot_type='bbb', save_dir=time.strftime('%Y-%m-%d'), pdf_type='list'):
     type_arr = pdf_type.split(',')
+    paths = {}
     if 'list' in type_arr:
         position = set_position()
-        create_list_pdf(data, position, save_dir, dot_type=dot_type)
+        paths['list'] = create_list_pdf(data, position, save_dir, dot_type=dot_type)
     if 'multi' in type_arr:
         position1 = set_position(row=8, margin=(10, 15, 158, 15))
         position2 = set_position(row=8, margin=(158, 15, 10, 15))
         position = [position1, position2]
-        create_multi_pdf(data, position, save_dir, dot_type=dot_type)
+        paths['multi'] = create_multi_pdf(data, position, save_dir, dot_type=dot_type)
+    return paths

@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from collect import collect
+from collect import collect, matrix_unzip
 from draw import create_pdf
 
 parser = argparse.ArgumentParser(description='manual to this script')
@@ -19,5 +19,6 @@ if args.target == 1:
 else:
     with open(args.student_data, 'r', encoding='utf-8') as f:
         jsonObject = json.load(f)
-    pdf_path = create_pdf(jsonObject, dot_type=args.dot_type, save_dir=args.path, pdf_type=args.type)
+    data = [{**item, 'area': matrix_unzip(item['area_char'], dot_type=args.dot_type)} for item in jsonObject]
+    pdf_path = create_pdf(data, dot_type=args.dot_type, save_dir=args.path, pdf_type=args.type)
     print(pdf_path)
