@@ -129,21 +129,12 @@ def create_list_pdf(data, position, name, dot_type='bbb', font_name=FONT_NAME, f
             x2 = x + image_mat.shape[1] * px2pt
             y2 = y + image_mat.shape[0] * px2pt
 
-            min_x, min_y, max_x, max_y = map(str, (image['min_x'], image['min_y'], image['max_x'], image['max_y']))
-            text = image['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
-            page.insert_text((position[i][0] + 1, position[i][3] - 1), text, color=(1, 0, 0, 0), fontname=font_name,
-                             fontfile=font_path, fontsize=3)
             # 学生名字
             if 'name' in image:
-                a = (position[i][3] - y) / 6 * 1.5
-                rect = (x, y + a, position[i][2], position[i][3])
-                student_name = str(image['name'])
+                rect = (x, y, position[i][2], position[i][3])
+                student_name = f"{image['name']}({image['code']})"
                 shape.insert_textbox(rect, student_name, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path,
-                                     align=1, fontsize=8)
-                b = (position[i][3] - y) / 6 * 2.8
-                rect2 = (x, y + b, position[i][2], position[i][3])
-                shape.insert_textbox(rect2, str(image['code']), color=(1, 0, 0, 0), fontname=font_name,
-                                     fontfile=font_path, align=1, fontsize=8)
+                                     align=0, fontsize=8)
             if 'p' in image:
                 shape.insert_textbox(position[i], str(image['p']), color=(0, 0, 1), fontsize=5)
             shape.commit()
@@ -188,21 +179,12 @@ def create_multi_pdf(data, position, name, dot_type='bbb', font_name=FONT_NAME, 
             x2 = x + image_mat.shape[1] * px2pt
             y2 = y + image_mat.shape[0] * px2pt
 
-            min_x, min_y, max_x, max_y = map(str, (image['min_x'], image['min_y'], image['max_x'], image['max_y']))
-            text = image['address'] + '-' + min_x + '-' + min_y + '-' + max_x + '-' + max_y
-            page.insert_text((p[0] + 1, p[3] - 1), text, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path,
-                             fontsize=3)
             # 学生名字
             if 'name' in image:
-                a = (p[3] - y) / 6 * 1.5
-                rect = fitz.Rect(x, y + a, p[2], p[3])
-                student_name = str(image['name'])
+                rect = fitz.Rect(x, y, p[2], p[3])
+                student_name = f"{image['name']}({image['code']})"
                 shape.insert_textbox(rect, student_name, color=(1, 0, 0, 0), fontname=font_name, fontfile=font_path,
-                                     align=1, fontsize=8)
-                b = (p[3] - y) / 6 * 2.8
-                rect2 = (x, y + b, p[2], p[3])
-                shape.insert_textbox(rect2, str(image['code']), color=(1, 0, 0, 0), fontname=font_name,
-                                     fontfile=font_path, align=1, fontsize=8)
+                                     align=0, fontsize=8)
             if 'p' in image:
                 shape.insert_textbox(p, str(image['p']), color=(0, 0, 1, 0), fontsize=5)
             shape.commit()
