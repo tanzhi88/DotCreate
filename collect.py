@@ -195,16 +195,18 @@ def matrix_unzip(area_char):
         hex_str = strings[3]
         bin_len = 3
         area_num = 8
+        bin_str = format(int(hex_str, 16), '0' + str(int(str_len)) + 'b')
     else:
         shape_str = strings[0]
         str_len = strings[1]
         hex_str = strings[2]
         bin_len = 2
         area_num = 4
+        bin_str = bin(int(hex_str, 16))[2:].zfill(len(hex_str) * 4)
     rows, cols = map(int, shape_str.split("*"))
     # 将32位的十六进制数据转化为二进制字符串
     # bin_str = bin(int(hex_str, 16))[2:].zfill(len(hex_str) * 4)
-    bin_str = format(int(hex_str, 16), '0' + str(int(str_len)) + 'b')
+    # bin_str = format(int(hex_str, 16), '0' + str(int(str_len)) + 'b')
     str_list = re.findall(fr'.{{{bin_len}}}', bin_str)
     max_col = cols / area_num
     block_list = []
