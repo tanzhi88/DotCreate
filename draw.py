@@ -149,6 +149,8 @@ def create_list_pdf(data, position, save_dir):
     doc = fitz.Document()
     # 每页个数
     page_num = len(position)
+    # 在学生列表前加入学校班级
+    data.insert(0, {'school_area': True, 'school_name': data})
     # 总页数
     page_total = math.ceil(len(data) / page_num)
     images = []
@@ -162,10 +164,16 @@ def create_list_pdf(data, position, save_dir):
     for page in doc.pages():
         for i in range(len(images[page.number])):
             image = images[page.number][i]
-            dot_pixmap = draw_image(data=image['area'])
-            name = image['name'] if 'name' in image else '姓名'
-            code = str(image['code']) if 'code' in image else '123456789012'
-            draw_ele(page, position[i], dot_pixmap, name, code)
+            if 'school_area' in image and len(images) >= i + 1:
+                student_data = images[page.number][i + 1]
+                school_name = student_data['school_name'] if 'school_name' in student_data else '学校名称'
+                class_name = student_data['grade_class'] if 'grade_class' in student_data else '班级名称'
+                draw_school(page, position[i], school_name, class_name)
+            else:
+                dot_pixmap = draw_image(data=image['area'])
+                name = image['name'] if 'name' in image else '姓名'
+                code = str(image['code']) if 'code' in image else '123456789012'
+                draw_ele(page, position[i], dot_pixmap, name, code)
 
     path = OUTPUT + PDF_SAVE + '/' + save_dir
     if not os.path.exists(path):
@@ -192,8 +200,13 @@ def create_multi_pdf(data, position, save_dir):
         else:
             position_part = position[part_len:]
 
-        for p in position_part:
-            draw_ele(page, p, dot_pixmap, name, code)
+        for index, p in enumerate(position_part):
+            if index == 0:
+                school_name = image['school_name'] if 'school_name' in image else '学校名称'
+                class_name = image['grade_class'] if 'grade_class' in image else '班级名称'
+                draw_school(page, p, school_name, class_name)
+            else:
+                draw_ele(page, p, dot_pixmap, name, code)
 
     path = OUTPUT + PDF_SAVE + '/' + save_dir
     if not os.path.exists(path):
@@ -228,6 +241,17 @@ def draw_ele(page, position, dot_pixmap, name, code, font_name=FONT_NAME, font_p
     # 学生名字
     if name:
         page.insert_textbox(dot_rect, f"{name}({code})", fontname=font_name, fontfile=font_path, fontsize=8)
+
+
+def draw_school(page, position, school_name, class_name, font_name=FONT_NAME, font_path=FONT_PATH):
+    """
+    绘制学校信息
+    """
+    school_position = (position[0] + 2, position[1] + 14, position[2] - 2, position[1] + 36)
+    school_rect = fitz.Rect(school_position)
+    class_rect = fitz.Rect(school_rect.bl, school_rect.x1, school_rect.y1 + 12)
+    page.insert_textbox(school_rect, school_name, fontname=font_name, fontfile=font_path, fontsize=8, align=1)
+    page.insert_textbox(class_rect, class_name, fontname=font_name, fontfile=font_path, fontsize=8, align=1)
 
 
 def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), pdf_type='list'):
