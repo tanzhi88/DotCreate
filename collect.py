@@ -4,7 +4,6 @@ import re
 import numpy as np
 from fitz import fitz
 
-
 lt = np.array([[255, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])  # [0, 0]
 rt = np.array([[0, 255, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])  # [0, 1]
 lb = np.array([[0, 0, 0, 0], [255, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])  # [1, 0]
@@ -167,13 +166,13 @@ def collect(pdf, address_num=0, ppi=600, size=9, width=42.7392, height=14.2464):
             img_matrix = np.copy(img[1:-1, 1:-1])
         hex_str = matrix_zip(img_matrix, area=area, ppi=ppi, size=size, width=width, height=height)
         json_arr.append({
-                     'address': address,
-                     'min_x': 0,
-                     'max_x': 100,
-                     'min_y': 0,
-                     'max_y': 100,
-                     'area_char': hex_str
-                        })
+            'address': address,
+            'min_x': 0,
+            'max_x': 100,
+            'min_y': 0,
+            'max_y': 100,
+            'area_char': hex_str
+        })
         pix = None  # 释放 Pixmap 对象的内存空间
 
     # 关闭 PDF 文件
@@ -220,3 +219,9 @@ def matrix_unzip(area_char):
             block_row = []
             block_list.append(row)
     return np.vstack(block_list)
+
+
+def get_dpi(area_char):
+    strings = area_char.split("|")
+    dpi = 600 if strings[0] == '600-9' else 300
+    return dpi

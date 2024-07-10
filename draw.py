@@ -23,8 +23,33 @@ FONT_NAME = 'simhei.ttf'
 FILE_NAME = "font/" + FONT_NAME
 FONT_PATH = os.path.join(os.path.dirname(__file__), FILE_NAME)
 
+DOT_IMG_WIDTH_RATE = 0.85
+DOT_IMG_HEIGHT_RATE = 0.715
+CODE_IMG_WIDTH_RATE = 0.85
 
-def draw_image(data, name=None):
+
+def draw_image(data, rect=None, dpi=600, name=None):
+    """
+    图片的宽度（mm）= 图像数据列数 / (dpi / 25.4)，高度同理
+    图片的宽度（pt）= 图像数据列数 / （dpi / 72），高度同理
+    如：600-9 型号的码点，dpi为600，图像数据的维度为(336, 1008), 那绘制出来的图像宽度为 1008 / (600 / 25.4), 结果为42.672
+    因此，如果需要把码点图像截短，可以用图像实际绘制出来的宽度计算图像数据维度
+    图片的宽度（数据维度） = round(图片实际宽度（mm） * (dpi / 25.4))
+    图片的宽度（数据维度） = round(图片实际宽度（pt） * (dpi / 72))
+    :param data: 图像数据
+    :param rect: 图像位置信息，用于设置图片大小
+    :param dpi: 码点的PPI
+    :param name: 图片名称，如果需要保存成图片文件的话
+    :return: 图像
+    """
+    if rect is not None:
+        width = rect.width * DOT_IMG_WIDTH_RATE  # 把码点显示成rect的 80 %, 单位为pt
+        height = rect.width * DOT_IMG_HEIGHT_RATE  # 高
+        # 把图像数据截断
+        max_width = round(width * (dpi / 72))
+        max_height = round(height * (dpi / 72))
+        data = data[:max_height, :max_width]
+    # 把图像数据转成pix
     cid = np.where(data == 255)
     b = np.zeros((data.shape[0], data.shape[1], 5), dtype=np.uint8)
     for i in np.asarray(cid).T:
@@ -51,6 +76,7 @@ def draw_image_rgb(data, name=None):
 
 def save_image(pix, name):
     path = OUTPUT + IMAGE_SAVE + '/' + time.strftime('%Y-%m-%d')
+    print(path)
     if not os.path.exists(path):
         os.makedirs(path)
     pix.save(path + '/' + name)
@@ -89,7 +115,7 @@ def generate_code(data):
     return fitz.Pixmap(image_data)
 
 
-def get_position(width=50, height=20, num_rows=13, num_cols=4, col_padding=2, row_padding=2):
+def get_position(width=40, height=20, num_rows=13, num_cols=5, col_padding=1, row_padding=2, start_x=3, start_y=6):
     """
     获取位置信息
     :param width: 每个区域的宽度
@@ -98,18 +124,10 @@ def get_position(width=50, height=20, num_rows=13, num_cols=4, col_padding=2, ro
     :param num_cols: 排成几列
     :param col_padding: 列宽
     :param row_padding: 行宽
+    :param start_x: 左边距
+    :param start_y: 右边距
     :return: list
     """
-    page_width, page_height = 210, 297
-    # 计算总间隔
-    total_col_spacing = (num_cols - 1) * col_padding
-    total_row_spacing = (num_rows - 1) * row_padding
-    # 计算所有矩形高宽
-    total_rect_width = num_cols * width + total_col_spacing
-    total_rect_height = num_rows * height + total_row_spacing
-    start_x = (page_width - total_rect_width) / 2
-    start_y = (page_height - total_rect_height) / 2
-
     position = []
     for row in range(num_rows):
         for col in range(num_cols):
@@ -129,7 +147,7 @@ def get_ele_rect(rect, width, height, h_offset):
     :param rect:
     :param width:
     :param height:
-    :param h_offset:
+    :param h_offset: 水平偏移（元素在矩形内X轴的起始位置）
     :return:
     """
     x0 = (rect.width - width) / 2 + rect.x0
@@ -170,10 +188,7 @@ def create_list_pdf(data, position, save_dir):
                 class_name = student_data['grade_class'] if 'grade_class' in student_data else '班级名称'
                 draw_school(page, position[i], school_name, class_name)
             else:
-                dot_pixmap = draw_image(data=image['area'])
-                name = image['name'] if 'name' in image else '姓名'
-                code = str(image['code']) if 'code' in image else '123456789012'
-                draw_ele(page, position[i], dot_pixmap, name, code)
+                draw_ele(page, position[i], image)
 
     path = OUTPUT + PDF_SAVE + '/' + save_dir
     if not os.path.exists(path):
@@ -191,9 +206,7 @@ def create_multi_pdf(data, position, save_dir):
     part_len = int(len(position) / 2)
     for i in range(len(data)):
         image = data[i]
-        dot_pixmap = draw_image(image['area'])
-        name = image['name'] if 'name' in image else '姓名'
-        code = str(image['code']) if 'code' in image else '123456789012'
+        dot_pixmap = draw_image(image['area'], fitz.Rect(position[0]), image['dpi'])
         if i % 2 == 0:
             page = doc.new_page()
             position_part = position[:part_len]
@@ -206,7 +219,7 @@ def create_multi_pdf(data, position, save_dir):
                 class_name = image['grade_class'] if 'grade_class' in image else '班级名称'
                 draw_school(page, p, school_name, class_name)
             else:
-                draw_ele(page, p, dot_pixmap, name, code)
+                draw_ele(page, p, image, dot_pixmap)
 
     path = OUTPUT + PDF_SAVE + '/' + save_dir
     if not os.path.exists(path):
@@ -217,30 +230,33 @@ def create_multi_pdf(data, position, save_dir):
     return current_path
 
 
-def draw_ele(page, position, dot_pixmap, name, code, font_name=FONT_NAME, font_path=FONT_PATH):
+def draw_ele(page, position, student_info, dot_pixmap=None):
     """
     绘制具体的元素
     :param page: page对像
     :param position: 要绘制的位置
     :param dot_pixmap: 码点图片
-    :param name: 学生名字
-    :param code: 学生唯一码
-    :param font_name: 字体名称
-    :param font_path: 字体路经
+    :param student_info: 学生数据信息
     :return: 无
     """
-    img_width, img_height = 42.7392 * mm, 14.2464 * mm
-    code_width, code_height = 42.5 * mm, 2 * mm
     rect = fitz.Rect(position)
-    # 条形码
+    name = student_info['name'] if 'name' in student_info else '姓名'
+    code = str(student_info['code']) if 'code' in student_info else '123456789012'
+
+    # 创建条形码，条码的宽度为矩形的85%，高为2mm
     code_pixmap = generate_code(code)
-    page.insert_image(get_ele_rect(rect, code_width, code_height, 4.5), pixmap=code_pixmap)
+    page.insert_image(get_ele_rect(rect, rect.width * CODE_IMG_WIDTH_RATE, 2 * mm, 4.5), pixmap=code_pixmap)
     # 码点
-    dot_rect = get_ele_rect(rect, img_width, img_height, 10.5)
+    if dot_pixmap is None:
+        dot_pixmap = draw_image(student_info['area'], rect, student_info['dpi'])
+    dot_rect = get_ele_rect(rect, rect.width * DOT_IMG_WIDTH_RATE, rect.height * DOT_IMG_HEIGHT_RATE, 10.5)
     page.insert_image(dot_rect, pixmap=dot_pixmap)
+
+    # 绘制边框，测试用
+    page.draw_rect(rect, color=(0, 1, 0), width=0.1)
     # 学生名字
     if name:
-        page.insert_textbox(dot_rect, f"{name}({code})", fontname=font_name, fontfile=font_path, fontsize=8)
+        page.insert_textbox(dot_rect, f"{name}({code})", fontname=FONT_NAME, fontfile=FONT_PATH, fontsize=8)
 
 
 def draw_school(page, position, school_name, class_name, font_name=FONT_NAME, font_path=FONT_PATH):
@@ -254,10 +270,13 @@ def draw_school(page, position, school_name, class_name, font_name=FONT_NAME, fo
     page.insert_textbox(class_rect, class_name, fontname=font_name, fontfile=font_path, fontsize=8, align=1)
 
 
-def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), pdf_type='list'):
+def create_pdf(data, save_dir=time.strftime('%Y-%m-%d'), pdf_type='list', position_type=1):
     type_arr = pdf_type.split(',')
     path = ''
-    position = get_position()
+    if position_type == 1:
+        position = get_position()
+    else:
+        position = get_position(width=50, num_cols=4, col_padding=2, start_x=2)
     if 'list' in type_arr:
         path = create_list_pdf(data, position, save_dir)
     if 'multi' in type_arr:
