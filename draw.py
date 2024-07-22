@@ -253,7 +253,7 @@ def draw_ele(page, position, student_info, dot_pixmap=None):
     page.insert_image(dot_rect, pixmap=dot_pixmap)
 
     # 绘制边框，测试用
-    page.draw_rect(rect, color=(0, 1, 0), width=0.1)
+    # page.draw_rect(rect, color=(0, 1, 0), width=0.1)
     # 学生名字
     if name:
         page.insert_textbox(dot_rect, f"{name}({code})", fontname=FONT_NAME, fontfile=FONT_PATH, fontsize=8)
